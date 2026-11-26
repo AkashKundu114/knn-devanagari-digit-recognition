@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this project, please cite it as below."
+type: software
+title: "Devanagari Handwritten Digit Recognition Using KNN"
+authors:
+  - family-names: Kundu
+    given-names: Akash
+repository-code: "https://github.com/AkashKundu114/knn-devanagari-digit-recognition"
+license: MIT
+version: 1.0.0
+date-released: 2026-11-26
