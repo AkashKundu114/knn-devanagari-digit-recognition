@@ -67,7 +67,8 @@ See [DATASET.md](DATASET.md) for the full dataset inspection details.
 ├── src/
 │   ├── __init__.py
 │   ├── data_loader.py             # CSV/image loading, deduplication, preprocessing
-│   └── train_evaluate.py          # Stratified splits, grid search, evaluation, plots
+│   ├── plots.py                   # 300 DPI evaluation figures
+│   └── train_evaluate.py          # Stratified splits, grid search, evaluation
 ├── tests/
 │   └── test_pipeline.py           # Unit and integration tests
 ├── .gitignore
