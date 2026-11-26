@@ -1,0 +1,81 @@
+name: Manual Full Evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_sizes:
+        description: "Space-separated image sizes (e.g. '16 32')"
+        required: false
+        default: "16 32"
+      k_values:
+        description: "Space-separated candidate K values"
+        required: false
+        default: "1 3 5 7 9"
+      random_state:
+        description: "Random seed for stratified splits"
+        required: false
+        default: "42"
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Kaggle secrets configuration
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          if [ -z "$KAGGLE_USERNAME" ] || [ -z "$KAGGLE_KEY" ]; then
+            echo "Kaggle secrets (KAGGLE_USERNAME and KAGGLE_KEY) are not configured."
+            echo "Configure repository secrets before running manual evaluation, or run locally."
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install kaggle -r requirements.txt
+
+      - name: Download and extract Kaggle dataset locally in runner
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          mkdir -p data/raw
+          kaggle datasets download -d sanjaypate/devanagari-script-digital-44000-images-dataset -p /tmp/kaggle_data
+          unzip -q /tmp/kaggle_data/devanagari-script-digital-44000-images-dataset.zip -d data/raw
+          rm -rf /tmp/kaggle_data
+
+      - name: Run full KNN evaluation
+        run: |
+          python -m src.train_evaluate \
+            --data-dir data/raw \
+            --output-dir results \
+            --image-sizes ${{ inputs.image_sizes }} \
+            --k-values ${{ inputs.k_values }} \
+            --random-state ${{ inputs.random_state }}
+
+      - name: Upload evaluation metrics (no raw dataset files)
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-results
+          path: |
+            results/metrics.json
+            results/dataset_inspection.json
+            results/classification_report.txt
+            results/classification_report.csv
+            results/confusion_matrix.csv
+            results/confusion_matrix.png
+            results/k_comparison.csv
+            results/k_validation_curve.png
+            results/class_distribution.png
+            results/sample_predictions.csv

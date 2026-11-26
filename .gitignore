@@ -11,9 +11,15 @@ data/raw/*
 *.zip
 results/*
 !results/.gitkeep
-report/*
-!report/.gitkeep
+report/*.pdf
 reports/
 *.pdf
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
 .pytest_cache/
 .ipynb_checkpoints/

@@ -2,21 +2,30 @@
 
 ```text
 .
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                     # Python CI, pytest, synthetic smoke test
+│       ├── manual-evaluation.yml      # Manual Kaggle evaluation workflow
+│       └── report-check.yml           # LaTeX source and Markdown link check
 ├── data/
-│   └── raw/                    # Local Kaggle dataset; ignored by Git
+│   └── raw/                           # Local Kaggle dataset; ignored by Git
 │       └── .gitkeep
 ├── report/
-│   ├── assignment_report.md    # Academic assignment report (Markdown)
-│   └── assignment_report.pdf   # Generated A4 PDF report; ignored by Git
-├── results/                    # Generated evaluation outputs; ignored by Git
+│   ├── assignment_report.md           # Concise Markdown report matching the PDF
+│   ├── assignment_report.pdf          # Compiled 3-page A4 LaTeX PDF; ignored by Git
+│   └── latex/
+│       ├── main.tex                   # Main LaTeX assignment report source
+│       ├── generated_results.tex      # Auto-generated macros/tables from results/
+│       └── figures/                   # Report figures copied from results/
+├── results/                           # Generated evaluation outputs; ignored by Git
 │   └── .gitkeep
 ├── src/
 │   ├── __init__.py
-│   ├── data_loader.py          # CSV/image dataset loading, deduplication, preprocessing
-│   ├── generate_report.py      # Builds report/assignment_report.pdf from results/
-│   └── train_evaluate.py       # Stratified splitting, K selection, evaluation, plots
+│   ├── data_loader.py                 # CSV/image loading, deduplication, preprocessing
+│   ├── generate_report.py             # Generates LaTeX tables and compiles PDF
+│   └── train_evaluate.py              # Splits, grid search, evaluation, plots
 ├── tests/
-│   └── test_pipeline.py        # Unit and integration tests (pytest)
+│   └── test_pipeline.py               # Unit and integration tests (pytest)
 ├── .gitignore
 ├── CHANGELOG.md
 ├── CITATION.cff

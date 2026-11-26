@@ -63,6 +63,9 @@ def write_latex_results(
     for (mode, size, feats, weight), row in piv.iterrows():
         cells = []
         for k_val in (1, 3, 5, 7, 9):
+            if k_val not in row.index or pd.isna(row[k_val]):
+                cells.append("--")
+                continue
             val_str = f"{row[k_val] * 100:.2f}"
             if mode == best_mode and int(size) == best_size and weight == best_weights and k_val == best_k:
                 cells.append(f"\\textbf{{{val_str}}}")
@@ -137,13 +140,18 @@ def compile_latex_pdf(
             "cd report/latex && pdflatex main.tex && pdflatex main.tex"
         )
 
-    cmd = [pdflatex, "-interaction=nonstopmode", "-halt-on-error", "main.tex"]
+    cmd = [pdflatex, "-interaction=nonstopmode", "-halt-on-error"]
+    if "miktex" in pdflatex.lower():
+        cmd.append("--disable-installer")
+    cmd.append("main.tex")
     for _ in range(2):
         proc = subprocess.run(
             cmd,
             cwd=str(latex_dir),
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
+            timeout=60,
             check=False,
         )
         if proc.returncode != 0:

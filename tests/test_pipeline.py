@@ -16,6 +16,7 @@ from src.data_loader import (
     normalize_folder_label,
     preprocess_image_array,
 )
+from src.generate_report import write_latex_results
 from src.train_evaluate import (
     create_stratified_splits,
     run_experiment,
@@ -30,7 +31,6 @@ RESULTS_DIR = REPO_ROOT / "results"
 def _make_synthetic_digit_array(digit: int, variant: int, size: int = 65) -> np.ndarray:
     """Create a deterministic synthetic grayscale 65x65 array per digit class."""
     arr = np.full((size, size), 255, dtype=np.uint8)
-    # Place distinct non-overlapping ink blocks per digit + small variant shift
     row_start = 10 + (digit % 5) * 9 + (variant % 4)
     col_start = 10 + (digit // 5) * 22 + ((variant // 4) % 4)
     arr[row_start:row_start + 8, col_start:col_start + 12] = 0
@@ -50,7 +50,6 @@ def _build_synthetic_csv_dataset(root: Path, per_class: int = 10, include_dups: 
             rows.append(rows[0].copy())
         pd.DataFrame(rows).to_csv(digits_csv_dir / f"{digit}.csv", header=False, index=False)
 
-    # Extra alphabet CSV that must be excluded
     pd.DataFrame([np.zeros(4225, dtype=np.uint8)]).to_csv(
         char_csv_dir / "1.csv", header=False, index=False
     )
@@ -88,7 +87,7 @@ def test_normalize_folder_label(folder_name: str, expected: int | None) -> None:
     assert normalize_folder_label(folder_name) == expected
 
 
-def test_find_digits_directory(tmp_path: Path) -> None:
+def test_find_digits_directory_and_invalid_path(tmp_path: Path) -> None:
     nested = tmp_path / "archive" / "Digits"
     nested.mkdir(parents=True)
     assert find_digits_directory(tmp_path) == nested
@@ -98,8 +97,22 @@ def test_find_digits_directory(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         find_digits_directory(empty_dir)
 
+    with pytest.raises(FileNotFoundError):
+        find_digits_directory(tmp_path / "nonexistent")
 
-def test_preprocessing_and_normalization() -> None:
+
+def test_missing_classes_raises_error(tmp_path: Path) -> None:
+    digits_csv_dir = tmp_path / "DIGITS" / "CSV_FILES"
+    digits_csv_dir.mkdir(parents=True)
+    for digit in range(9):  # Missing digit 9
+        rows = [_make_synthetic_digit_array(digit, v).reshape(-1) for v in range(4)]
+        pd.DataFrame(rows).to_csv(digits_csv_dir / f"{digit}.csv", header=False, index=False)
+
+    with pytest.raises(RuntimeError, match="Expected all ten digit labels"):
+        load_digit_images(tmp_path, image_size=16)
+
+
+def test_preprocessing_resizing_and_normalization() -> None:
     sample = _make_synthetic_digit_array(4, 1, size=65)
     for mode in ("raw", "centered"):
         for size in (16, 32):
@@ -116,9 +129,8 @@ def test_preprocessing_and_normalization() -> None:
         preprocess_image_array(sample, image_size=16, preprocess_mode="invalid")
 
 
-def test_csv_loader_deduplication_and_corrupt_rows(tmp_path: Path) -> None:
+def test_csv_loader_class_filtering_dedup_and_corrupt_rows(tmp_path: Path) -> None:
     data_dir = _build_synthetic_csv_dataset(tmp_path, per_class=10, include_dups=True)
-    # Inject a corrupt row into 0.csv and an unexpected file into CSV_FILES
     csv_0 = data_dir / "DEVA-C-SET-CSV" / "DIGITS" / "CSV_FILES" / "0.csv"
     with csv_0.open("a", encoding="utf-8") as fh:
         fh.write(",".join(["bad"] * 4225) + "\n")
@@ -139,7 +151,6 @@ def test_csv_loader_deduplication_and_corrupt_rows(tmp_path: Path) -> None:
 
 def test_image_folder_loader_and_corrupt_image_handling(tmp_path: Path) -> None:
     data_dir = _build_synthetic_image_dataset(tmp_path, per_class=8)
-    # Add a corrupt image file that must be skipped safely
     (data_dir / "DIGITS" / "digit_0" / "broken.jpg").write_bytes(b"not-a-valid-jpeg")
 
     X, y, meta = load_digit_images(data_dir, image_size=16, preprocess_mode="raw", deduplicate=False)
@@ -151,23 +162,21 @@ def test_image_folder_loader_and_corrupt_image_handling(tmp_path: Path) -> None:
 
 
 def test_stratified_splitting_no_leakage() -> None:
-    y = np.repeat(np.arange(10), 20)  # 200 samples, 20 per class
+    y = np.repeat(np.arange(10), 20)
     idx_train, idx_val, idx_test = create_stratified_splits(
         y, test_size=0.15, validation_size=0.15, random_state=42
     )
     assert len(idx_train) + len(idx_val) + len(idx_test) == 200
     assert len(idx_test) == 30
     assert 29 <= len(idx_val) <= 31
-    assert len(idx_train) + len(idx_val) + len(idx_test) == 200
     assert len(set(idx_train) & set(idx_val)) == 0
     assert len(set(idx_train) & set(idx_test)) == 0
     assert len(set(idx_val) & set(idx_test)) == 0
-    # Stratification check: 3 test samples per class
     _, test_counts = np.unique(y[idx_test], return_counts=True)
     assert np.all(test_counts == 3)
 
 
-def test_k_selection_and_reproducibility(tmp_path: Path) -> None:
+def test_knn_configuration_weighting_and_reproducibility(tmp_path: Path) -> None:
     data_dir = _build_synthetic_csv_dataset(tmp_path / "data", per_class=12, include_dups=False)
     raw_imgs, y, _ = load_raw_digit_dataset(data_dir, deduplicate=True)
     idx_train, idx_val, _ = create_stratified_splits(y, random_state=42)
@@ -175,23 +184,34 @@ def test_k_selection_and_reproducibility(tmp_path: Path) -> None:
         ("centered", 16): np.asarray([preprocess_image_array(im, 16, "centered") for im in raw_imgs]),
         ("raw", 16): np.asarray([preprocess_image_array(im, 16, "raw") for im in raw_imgs]),
     }
-    comp_df, best = select_best_configuration(cache, y, idx_train, idx_val, [1, 3, 5])
-    assert len(comp_df) == 6
+    comp_df, best = select_best_configuration(
+        cache, y, idx_train, idx_val, [1, 3, 5], weights_list=["distance", "uniform"]
+    )
+    assert len(comp_df) == 12
+    assert set(comp_df["weights"].unique()) == {"distance", "uniform"}
     assert comp_df.iloc[0]["validation_accuracy"] == best["validation_accuracy"]
     assert best["k"] in (1, 3, 5)
+    assert best["weights"] in ("distance", "uniform")
 
     out_1 = tmp_path / "run1"
     out_2 = tmp_path / "run2"
-    m1 = run_experiment(data_dir, out_1, image_sizes=[16], preprocess_modes=["centered"], k_values=[1, 3, 5], random_state=42)
-    m2 = run_experiment(data_dir, out_2, image_sizes=[16], preprocess_modes=["centered"], k_values=[1, 3, 5], random_state=42)
+    m1 = run_experiment(
+        data_dir, out_1, image_sizes=[16], preprocess_modes=["centered"],
+        k_values=[1, 3, 5], weights_list=["distance", "uniform"], random_state=42,
+    )
+    m2 = run_experiment(
+        data_dir, out_2, image_sizes=[16], preprocess_modes=["centered"],
+        k_values=[1, 3, 5], weights_list=["distance", "uniform"], random_state=42,
+    )
     assert m1["selected_k"] == m2["selected_k"]
+    assert m1["weights"] == m2["weights"]
     assert m1["test_accuracy"] == pytest.approx(m2["test_accuracy"])
     assert (out_1 / "sample_predictions.csv").read_text(encoding="utf-8") == (
         out_2 / "sample_predictions.csv"
     ).read_text(encoding="utf-8")
 
 
-def test_end_to_end_synthetic_outputs_and_agreement(tmp_path: Path) -> None:
+def test_end_to_end_synthetic_outputs_and_latex_generation(tmp_path: Path) -> None:
     data_dir = _build_synthetic_csv_dataset(tmp_path / "data", per_class=12, include_dups=True)
     out_dir = tmp_path / "results"
     metrics = run_experiment(
@@ -200,6 +220,7 @@ def test_end_to_end_synthetic_outputs_and_agreement(tmp_path: Path) -> None:
         image_sizes=[16, 32],
         preprocess_modes=["raw", "centered"],
         k_values=[1, 3, 5],
+        weights_list=["distance", "uniform"],
         random_state=42,
     )
 
@@ -207,6 +228,7 @@ def test_end_to_end_synthetic_outputs_and_agreement(tmp_path: Path) -> None:
         "metrics.json",
         "dataset_inspection.json",
         "classification_report.txt",
+        "classification_report.csv",
         "confusion_matrix.csv",
         "confusion_matrix.png",
         "k_comparison.csv",
@@ -219,15 +241,22 @@ def test_end_to_end_synthetic_outputs_and_agreement(tmp_path: Path) -> None:
     for name in expected_files:
         assert (out_dir / name).is_file(), f"Missing output artifact: {name}"
 
-    cm_df = pd.read_csv(out_dir / "confusion_matrix.csv", index_col=0)
-    cm = cm_df.to_numpy()
+    cm = pd.read_csv(out_dir / "confusion_matrix.csv", index_col=0).to_numpy()
     assert cm.shape == (10, 10)
     assert int(cm.sum()) == metrics["split_counts"]["test"]
     assert float(np.trace(cm) / cm.sum()) == pytest.approx(metrics["test_accuracy"])
 
+    cr_df = pd.read_csv(out_dir / "classification_report.csv")
+    assert len(cr_df) == 10
+    assert int(cr_df["support"].sum()) == metrics["split_counts"]["test"]
+
     preds = pd.read_csv(out_dir / "sample_predictions.csv")
     assert len(preds) == metrics["split_counts"]["test"]
     assert float(preds["correct"].mean()) == pytest.approx(metrics["test_accuracy"])
+
+    tex_path = write_latex_results(results_dir=out_dir, latex_dir=tmp_path / "latex")
+    assert tex_path.is_file()
+    assert (tmp_path / "latex" / "figures" / "confusion_matrix.png").is_file()
 
 
 @pytest.mark.skipif(
@@ -240,15 +269,19 @@ def test_real_dataset_results_consistency() -> None:
     cm = pd.read_csv(RESULTS_DIR / "confusion_matrix.csv", index_col=0).to_numpy()
     k_comp = pd.read_csv(RESULTS_DIR / "k_comparison.csv")
     preds = pd.read_csv(RESULTS_DIR / "sample_predictions.csv")
+    cr_df = pd.read_csv(RESULTS_DIR / "classification_report.csv")
 
     assert metrics["total_images_loaded"] == 1073
     assert metrics["raw_digit_images"] == 8676
     assert metrics["duplicates_removed"] == 7603
+    assert len(k_comp) == 40
     assert sum(metrics["class_counts"].values()) == 1073
     assert int(cm.sum()) == metrics["split_counts"]["test"]
     assert float(np.trace(cm) / cm.sum()) == pytest.approx(metrics["test_accuracy"])
     assert float(preds["correct"].mean()) == pytest.approx(metrics["test_accuracy"])
+    assert int(cr_df["support"].sum()) == metrics["split_counts"]["test"]
     assert int(k_comp.iloc[0]["k"]) == metrics["selected_k"]
+    assert str(k_comp.iloc[0]["weights"]) == metrics["weights"]
     assert str(k_comp.iloc[0]["preprocess_mode"]) == metrics["selected_preprocess_mode"]
     assert int(k_comp.iloc[0]["image_size"]) == metrics["image_size"]
     assert float(k_comp.iloc[0]["validation_accuracy"]) == pytest.approx(

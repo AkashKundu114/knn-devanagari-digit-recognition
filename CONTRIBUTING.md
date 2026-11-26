@@ -1,11 +1,10 @@
 # Contributing
 
-Suggestions and bug reports are welcome.
+Contributions and bug reports are welcome.
 
-1. Open an issue describing the problem or proposed improvement.
-2. Keep changes focused and document any change to preprocessing, data loading, or evaluation.
-3. Do not commit raw dataset images, archives, Kaggle credentials, API tokens, virtual environments, or generated report PDFs.
-4. Run `python -m compileall src tests` and `python -m pytest -v` before committing changes.
-5. Never report fabricated metrics. Include the exact command, configuration, and measured output when reporting evaluation results.
-
-By submitting a contribution, you agree that your contribution may be distributed under the repository's MIT License.
+1. Keep changes focused and document updates to preprocessing, loading, or evaluation.
+2. Never commit raw dataset files, archives, Kaggle credentials, API tokens, virtual environments, or compiled PDFs.
+3. Run checks locally before committing:
+   - `python -m compileall src tests`
+   - `python -m pytest -v`
+4. Report only measured results with the exact command and configuration used.
