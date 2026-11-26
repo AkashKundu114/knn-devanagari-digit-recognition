@@ -15,6 +15,7 @@ report/
 reports/
 src/generate_report.py
 *.pdf
+*.pptx
 *.aux
 *.log
 *.out
