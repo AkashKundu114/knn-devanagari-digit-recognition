@@ -2,27 +2,27 @@
 
 ## Pipeline
 
-1. Locate the `DIGITS` folder and ignore the alphabet subset.
-2. Read images from each numeral class folder.
-3. Convert each image to grayscale.
-4. Resize each image to 16 × 16 pixels.
-5. Convert the 256 pixel intensities into a flattened feature vector.
-6. Normalize intensity values from 0–255 to 0–1.
-7. Create stratified training, validation and test partitions (default 70/15/15).
-8. Fit candidate KNN classifiers for K = 1, 3, 5 and 7 and 9.
-9. Select K by validation accuracy.
-10. Refit the selected model on the combined training and validation samples.
-11. Evaluate once on the held-out test partition.
-12. Save aggregate metrics, per-class metrics, confusion matrix and sample predictions.
+1. Locate `DIGITS/CSV_FILES/` under `data/raw/` and exclude `CHAR/`.
+2. Read `0.csv` through `9.csv` (`header=None`), validate 4,225-column 65 x 65 integer pixel rows in `[0, 255]`, and skip any malformed rows safely.
+3. Deduplicate exact image matrices via SHA-256 hashing (`8,676` raw rows -> `1,073` unique images) to prevent train-test data leakage.
+4. Create disjoint stratified splits with `random_state = 42`: 70% training (`751`), 15% validation (`161`), and 15% held-out test (`161`).
+5. Generate normalized `[0, 1]` feature vectors across two preprocessing modes (`raw` and `centered`) and two image resolutions (`16 x 16` = 256 features, `32 x 32` = 1,024 features):
+   - `raw`: direct Lanczos resize from 65 x 65 to `S x S`.
+   - `centered`: 3-pixel border cleanup, tight bounding-box crop on ink pixels (`< 200`), symmetric square padding, and Lanczos resize to `(S - 2) x (S - 2)` centered on an `S x S` white canvas.
+6. Fit `KNeighborsClassifier(metric="euclidean", weights="distance")` across `K in {1, 3, 5, 7, 9}` for every `(mode, image_size)` pair on the validation split.
+7. Select the best `(mode, image_size, K)` strictly by validation accuracy (`centered`, `16 x 16`, `K = 3`, `99.38%`).
+8. Refit the selected model on combined training + validation (`912` samples) and evaluate once on the held-out test split (`161` samples).
 
 ## Classifier
 
-The implementation uses Euclidean distance and distance-weighted neighbour voting. For a query vector, the model finds its K closest training vectors and predicts based on the labels of those neighbours, giving closer neighbours greater voting weight.
+Distance-weighted KNN classifies a query vector `q` by computing Euclidean distance `d(q, x_i) = sqrt(sum_j (q_j - x_{i,j})^2)` to all stored training vectors and weighting each of the `K` nearest neighbors by `1 / d(q, x_i)`.
 
 ## Reproducibility
 
-The split uses a configurable random seed (default 42). Stratification maintains class proportions across partitions. The test set is not used for hyperparameter selection.
+Splitting is deterministic (`random_state = 42`), per-image preprocessing fits no global statistics across splits, and index-intersection assertions confirm zero overlap between train, validation, and test sets.
 
 ## Limitations
 
-Flattening pixels discards explicit spatial relationships. KNN stores training samples and can have high prediction cost on large datasets. Results depend on the downloaded dataset's actual folder structure and quality. Generalization to paper scans or camera images is not established by this experiment.
+- Raw uncentered pixels are sensitive to translation and scale differences on the drawing canvas (`68.32%` validation accuracy vs. `99.38%` centered).
+- Prediction time scales linearly with training set size and feature count.
+- Canvas drawings do not establish performance on paper scans or camera photographs.

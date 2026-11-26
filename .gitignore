@@ -11,4 +11,9 @@ data/raw/*
 *.zip
 results/*
 !results/.gitkeep
+report/*
+!report/.gitkeep
+reports/
+*.pdf
+.pytest_cache/
 .ipynb_checkpoints/
