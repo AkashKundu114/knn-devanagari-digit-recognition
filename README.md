@@ -63,7 +63,7 @@ See [DATASET.md](DATASET.md) for the full dataset inspection details.
 │   └── manual-evaluation.yml      # Manual Kaggle evaluation workflow
 ├── data/
 │   └── raw/                       # Local extracted Kaggle dataset (ignored by Git)
-├── results/                       # Generated metrics, CSVs, and plots (ignored by Git)
+├── results/                       # Evaluation metrics, CSVs, and 300 DPI plots
 ├── src/
 │   ├── __init__.py
 │   ├── data_loader.py             # CSV/image loading, deduplication, preprocessing
@@ -106,6 +106,18 @@ All 40 candidate configurations are evaluated strictly on the 161-sample validat
 - **Macro recall:** `94.29%`
 - **Macro F1-score:** `94.86%`
 - **Weighted precision / recall / F1:** `95.29%` / `95.03%` / `95.01%`
+
+### Visual Results
+
+![Devanagari Digit Class Distribution](results/class_distribution.png)
+
+![Preprocessing Comparison](results/preprocessing_comparison.png)
+
+![Validation Accuracy Curves](results/k_validation_curve.png)
+
+![Confusion Matrix](results/confusion_matrix.png)
+
+![Held-Out Test Predictions](results/prediction_samples.png)
 
 See [METHODOLOGY.md](METHODOLOGY.md) and [EVALUATION.md](EVALUATION.md) for detailed configuration and per-class observations.
 

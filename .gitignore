@@ -9,8 +9,6 @@ kaggle.json
 data/raw/*
 !data/raw/.gitkeep
 *.zip
-results/*
-!results/.gitkeep
 report/
 reports/
 src/generate_report.py

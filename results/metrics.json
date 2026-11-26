@@ -1,0 +1,547 @@
+{
+  "project": "Devanagari Handwritten Digit Recognition Using KNN",
+  "dataset_source": "https://www.kaggle.com/datasets/sanjaypate/devanagari-script-digital-44000-images-dataset",
+  "dataset_doi": "10.34740/KAGGLE/DSV/9820160",
+  "dataset_directory": "data\\raw\\DEVA-C-SET-CSV\\DIGITS",
+  "source_format": "csv",
+  "raw_digit_images": 8676,
+  "duplicates_removed": 7603,
+  "total_images_loaded": 1073,
+  "class_counts": {
+    "0": 59,
+    "1": 123,
+    "2": 115,
+    "3": 98,
+    "4": 110,
+    "5": 126,
+    "6": 126,
+    "7": 97,
+    "8": 100,
+    "9": 119
+  },
+  "raw_class_counts": {
+    "0": 525,
+    "1": 959,
+    "2": 899,
+    "3": 899,
+    "4": 899,
+    "5": 899,
+    "6": 899,
+    "7": 899,
+    "8": 899,
+    "9": 899
+  },
+  "excluded_alphabet_rows": 32855,
+  "split_counts": {
+    "train": 751,
+    "validation": 161,
+    "final_training_after_refit": 912,
+    "test": 161
+  },
+  "distance_metric": "euclidean",
+  "weights": "distance",
+  "selected_preprocess_mode": "centered",
+  "image_size": 16,
+  "features_per_image": 256,
+  "selected_k": 3,
+  "selected_validation_accuracy": 0.9937888198757764,
+  "candidate_comparisons": [
+    {
+      "preprocess_mode": "centered",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "distance",
+      "k": 3,
+      "validation_accuracy": 0.9937888198757764,
+      "fit_time_seconds": 0.000878,
+      "val_predict_time_seconds": 0.024937
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "uniform",
+      "k": 3,
+      "validation_accuracy": 0.9937888198757764,
+      "fit_time_seconds": 0.002512,
+      "val_predict_time_seconds": 0.022842
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "distance",
+      "k": 1,
+      "validation_accuracy": 0.9875776397515528,
+      "fit_time_seconds": 0.000979,
+      "val_predict_time_seconds": 0.023599
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "uniform",
+      "k": 1,
+      "validation_accuracy": 0.9875776397515528,
+      "fit_time_seconds": 0.000899,
+      "val_predict_time_seconds": 0.02005
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "distance",
+      "k": 1,
+      "validation_accuracy": 0.9813664596273292,
+      "fit_time_seconds": 0.001656,
+      "val_predict_time_seconds": 0.063458
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "uniform",
+      "k": 1,
+      "validation_accuracy": 0.9813664596273292,
+      "fit_time_seconds": 0.00179,
+      "val_predict_time_seconds": 0.05693
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "distance",
+      "k": 3,
+      "validation_accuracy": 0.9751552795031055,
+      "fit_time_seconds": 0.00125,
+      "val_predict_time_seconds": 0.054568
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "uniform",
+      "k": 3,
+      "validation_accuracy": 0.9751552795031055,
+      "fit_time_seconds": 0.001562,
+      "val_predict_time_seconds": 0.054434
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "distance",
+      "k": 5,
+      "validation_accuracy": 0.9751552795031055,
+      "fit_time_seconds": 0.001609,
+      "val_predict_time_seconds": 0.062629
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "uniform",
+      "k": 5,
+      "validation_accuracy": 0.9751552795031055,
+      "fit_time_seconds": 0.001207,
+      "val_predict_time_seconds": 0.057349
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "distance",
+      "k": 5,
+      "validation_accuracy": 0.968944099378882,
+      "fit_time_seconds": 0.000786,
+      "val_predict_time_seconds": 0.023923
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "uniform",
+      "k": 5,
+      "validation_accuracy": 0.968944099378882,
+      "fit_time_seconds": 0.000648,
+      "val_predict_time_seconds": 0.020686
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "distance",
+      "k": 7,
+      "validation_accuracy": 0.968944099378882,
+      "fit_time_seconds": 0.000996,
+      "val_predict_time_seconds": 0.021794
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "uniform",
+      "k": 7,
+      "validation_accuracy": 0.9627329192546584,
+      "fit_time_seconds": 0.000939,
+      "val_predict_time_seconds": 0.023482
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "distance",
+      "k": 9,
+      "validation_accuracy": 0.9627329192546584,
+      "fit_time_seconds": 0.001183,
+      "val_predict_time_seconds": 0.022601
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "uniform",
+      "k": 9,
+      "validation_accuracy": 0.9627329192546584,
+      "fit_time_seconds": 0.001045,
+      "val_predict_time_seconds": 0.028448
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "distance",
+      "k": 7,
+      "validation_accuracy": 0.9627329192546584,
+      "fit_time_seconds": 0.001674,
+      "val_predict_time_seconds": 0.055326
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "uniform",
+      "k": 7,
+      "validation_accuracy": 0.9627329192546584,
+      "fit_time_seconds": 0.001837,
+      "val_predict_time_seconds": 0.056131
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "distance",
+      "k": 9,
+      "validation_accuracy": 0.9565217391304348,
+      "fit_time_seconds": 0.001785,
+      "val_predict_time_seconds": 0.062901
+    },
+    {
+      "preprocess_mode": "centered",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "uniform",
+      "k": 9,
+      "validation_accuracy": 0.9565217391304348,
+      "fit_time_seconds": 0.001287,
+      "val_predict_time_seconds": 0.06512
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "uniform",
+      "k": 3,
+      "validation_accuracy": 0.6956521739130435,
+      "fit_time_seconds": 0.001852,
+      "val_predict_time_seconds": 0.070149
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "distance",
+      "k": 1,
+      "validation_accuracy": 0.6832298136645962,
+      "fit_time_seconds": 0.00245,
+      "val_predict_time_seconds": 1.748552
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "uniform",
+      "k": 1,
+      "validation_accuracy": 0.6832298136645962,
+      "fit_time_seconds": 0.001338,
+      "val_predict_time_seconds": 0.033581
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "uniform",
+      "k": 3,
+      "validation_accuracy": 0.6708074534161491,
+      "fit_time_seconds": 0.001138,
+      "val_predict_time_seconds": 0.031769
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "distance",
+      "k": 3,
+      "validation_accuracy": 0.6583850931677019,
+      "fit_time_seconds": 0.001043,
+      "val_predict_time_seconds": 0.025223
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "distance",
+      "k": 1,
+      "validation_accuracy": 0.6583850931677019,
+      "fit_time_seconds": 0.003159,
+      "val_predict_time_seconds": 0.106306
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "uniform",
+      "k": 1,
+      "validation_accuracy": 0.6583850931677019,
+      "fit_time_seconds": 0.001581,
+      "val_predict_time_seconds": 0.069489
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "distance",
+      "k": 3,
+      "validation_accuracy": 0.6583850931677019,
+      "fit_time_seconds": 0.003131,
+      "val_predict_time_seconds": 0.061926
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "distance",
+      "k": 5,
+      "validation_accuracy": 0.6459627329192547,
+      "fit_time_seconds": 0.00085,
+      "val_predict_time_seconds": 0.038048
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "distance",
+      "k": 7,
+      "validation_accuracy": 0.6335403726708074,
+      "fit_time_seconds": 0.00168,
+      "val_predict_time_seconds": 0.028549
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "uniform",
+      "k": 5,
+      "validation_accuracy": 0.6086956521739131,
+      "fit_time_seconds": 0.001798,
+      "val_predict_time_seconds": 0.028427
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "distance",
+      "k": 5,
+      "validation_accuracy": 0.6086956521739131,
+      "fit_time_seconds": 0.00215,
+      "val_predict_time_seconds": 0.058904
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "distance",
+      "k": 7,
+      "validation_accuracy": 0.6086956521739131,
+      "fit_time_seconds": 0.001874,
+      "val_predict_time_seconds": 0.062033
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "uniform",
+      "k": 5,
+      "validation_accuracy": 0.5962732919254659,
+      "fit_time_seconds": 0.003613,
+      "val_predict_time_seconds": 0.069068
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "distance",
+      "k": 9,
+      "validation_accuracy": 0.5838509316770186,
+      "fit_time_seconds": 0.002844,
+      "val_predict_time_seconds": 0.063826
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "uniform",
+      "k": 9,
+      "validation_accuracy": 0.577639751552795,
+      "fit_time_seconds": 0.001311,
+      "val_predict_time_seconds": 0.030523
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "uniform",
+      "k": 9,
+      "validation_accuracy": 0.577639751552795,
+      "fit_time_seconds": 0.001493,
+      "val_predict_time_seconds": 0.059929
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "uniform",
+      "k": 7,
+      "validation_accuracy": 0.5714285714285714,
+      "fit_time_seconds": 0.001025,
+      "val_predict_time_seconds": 0.026776
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 16,
+      "feature_count": 256,
+      "weights": "distance",
+      "k": 9,
+      "validation_accuracy": 0.5652173913043478,
+      "fit_time_seconds": 0.001368,
+      "val_predict_time_seconds": 0.028849
+    },
+    {
+      "preprocess_mode": "raw",
+      "image_size": 32,
+      "feature_count": 1024,
+      "weights": "uniform",
+      "k": 7,
+      "validation_accuracy": 0.5652173913043478,
+      "fit_time_seconds": 0.002279,
+      "val_predict_time_seconds": 0.060066
+    }
+  ],
+  "test_accuracy": 0.9503105590062112,
+  "test_macro_precision": 0.9581838118022329,
+  "test_macro_recall": 0.9429312865497076,
+  "test_macro_f1": 0.9485548264057959,
+  "test_weighted_precision": 0.9528514963297572,
+  "test_weighted_recall": 0.9503105590062112,
+  "test_weighted_f1": 0.9501087870698798,
+  "per_class_metrics": {
+    "0": {
+      "glyph": "०",
+      "precision": 1.0,
+      "recall": 0.7777777777777778,
+      "f1_score": 0.875,
+      "support": 9
+    },
+    "1": {
+      "glyph": "१",
+      "precision": 0.8888888888888888,
+      "recall": 0.8888888888888888,
+      "f1_score": 0.8888888888888888,
+      "support": 18
+    },
+    "2": {
+      "glyph": "२",
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 17
+    },
+    "3": {
+      "glyph": "३",
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 15
+    },
+    "4": {
+      "glyph": "४",
+      "precision": 0.9375,
+      "recall": 0.9375,
+      "f1_score": 0.9375,
+      "support": 16
+    },
+    "5": {
+      "glyph": "५",
+      "precision": 0.9473684210526315,
+      "recall": 0.9473684210526315,
+      "f1_score": 0.9473684210526315,
+      "support": 19
+    },
+    "6": {
+      "glyph": "६",
+      "precision": 0.8636363636363636,
+      "recall": 1.0,
+      "f1_score": 0.926829268292683,
+      "support": 19
+    },
+    "7": {
+      "glyph": "७",
+      "precision": 1.0,
+      "recall": 0.9333333333333333,
+      "f1_score": 0.9655172413793104,
+      "support": 15
+    },
+    "8": {
+      "glyph": "८",
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 15
+    },
+    "9": {
+      "glyph": "९",
+      "precision": 0.9444444444444444,
+      "recall": 0.9444444444444444,
+      "f1_score": 0.9444444444444444,
+      "support": 18
+    }
+  },
+  "timing_seconds": {
+    "data_loading": 10.3481,
+    "validation_search": 3.6792,
+    "final_model_fit": 0.0015,
+    "test_inference": 0.0252
+  },
+  "random_state": 42,
+  "environment": {
+    "python_version": "3.14.6",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "processor": "AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD",
+    "cpu_count": 32,
+    "numpy_version": "2.4.6",
+    "pandas_version": "3.0.5",
+    "pillow_version": "12.3.0",
+    "scikit_learn_version": "1.9.1",
+    "matplotlib_version": "3.11.1"
+  }
+}

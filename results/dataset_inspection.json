@@ -1,0 +1,50 @@
+{
+  "digits_directory": "data\\raw\\DEVA-C-SET-CSV\\DIGITS",
+  "source_format": "csv",
+  "source_directory": "data\\raw\\DEVA-C-SET-CSV\\DIGITS\\CSV_FILES",
+  "detected_dimensions": [
+    "65x65"
+  ],
+  "detected_formats": [
+    "CSV (uint8 pixel matrix)"
+  ],
+  "raw_digit_images": 8676,
+  "duplicates_removed": 7603,
+  "cross_class_duplicates": 0,
+  "unique_digit_images": 1073,
+  "raw_class_counts": {
+    "0": 525,
+    "1": 959,
+    "2": 899,
+    "3": 899,
+    "4": 899,
+    "5": 899,
+    "6": 899,
+    "7": 899,
+    "8": 899,
+    "9": 899
+  },
+  "unique_class_counts": {
+    "0": 59,
+    "1": 123,
+    "2": 115,
+    "3": 98,
+    "4": 110,
+    "5": 126,
+    "6": 126,
+    "7": 97,
+    "8": 100,
+    "9": 119
+  },
+  "ignored_files_or_folders": [],
+  "corrupt_files": [],
+  "corrupt_rows_skipped": 0,
+  "excluded_alphabet_subset": {
+    "present": true,
+    "directory": "data\\raw\\DEVA-C-SET-CSV\\CHAR",
+    "source_subdir": "data\\raw\\DEVA-C-SET-CSV\\CHAR\\CSV_FILES",
+    "csv_files": 35,
+    "rows": 32855,
+    "image_files": 0
+  }
+}
