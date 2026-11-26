@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+kaggle.json
+.kaggle/
+data/raw/*
+!data/raw/.gitkeep
+*.zip
+results/*
+!results/.gitkeep
+.ipynb_checkpoints/
