@@ -6,12 +6,6 @@ Run the experiment from the repository root after extracting the Kaggle dataset 
 python -m src.train_evaluate --data-dir data/raw --output-dir results
 ```
 
-To populate `report/latex/generated_results.tex` and compile the 3-page A4 LaTeX PDF (`report/assignment_report.pdf`):
-
-```bash
-python -m src.generate_report
-```
-
 ## Generated files
 
 | File | Contents |

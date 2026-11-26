@@ -16,7 +16,6 @@ from src.data_loader import (
     normalize_folder_label,
     preprocess_image_array,
 )
-from src.generate_report import write_latex_results
 from src.train_evaluate import (
     create_stratified_splits,
     run_experiment,
@@ -104,7 +103,7 @@ def test_find_digits_directory_and_invalid_path(tmp_path: Path) -> None:
 def test_missing_classes_raises_error(tmp_path: Path) -> None:
     digits_csv_dir = tmp_path / "DIGITS" / "CSV_FILES"
     digits_csv_dir.mkdir(parents=True)
-    for digit in range(9):  # Missing digit 9
+    for digit in range(9):
         rows = [_make_synthetic_digit_array(digit, v).reshape(-1) for v in range(4)]
         pd.DataFrame(rows).to_csv(digits_csv_dir / f"{digit}.csv", header=False, index=False)
 
@@ -211,7 +210,7 @@ def test_knn_configuration_weighting_and_reproducibility(tmp_path: Path) -> None
     ).read_text(encoding="utf-8")
 
 
-def test_end_to_end_synthetic_outputs_and_latex_generation(tmp_path: Path) -> None:
+def test_end_to_end_synthetic_outputs_and_agreement(tmp_path: Path) -> None:
     data_dir = _build_synthetic_csv_dataset(tmp_path / "data", per_class=12, include_dups=True)
     out_dir = tmp_path / "results"
     metrics = run_experiment(
@@ -253,10 +252,6 @@ def test_end_to_end_synthetic_outputs_and_latex_generation(tmp_path: Path) -> No
     preds = pd.read_csv(out_dir / "sample_predictions.csv")
     assert len(preds) == metrics["split_counts"]["test"]
     assert float(preds["correct"].mean()) == pytest.approx(metrics["test_accuracy"])
-
-    tex_path = write_latex_results(results_dir=out_dir, latex_dir=tmp_path / "latex")
-    assert tex_path.is_file()
-    assert (tmp_path / "latex" / "figures" / "confusion_matrix.png").is_file()
 
 
 @pytest.mark.skipif(

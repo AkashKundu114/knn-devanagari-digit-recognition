@@ -30,6 +30,26 @@ jobs:
       - name: Run unit tests
         run: python -m pytest -v
 
+      - name: Check Markdown links
+        run: |
+          python -c "
+          from pathlib import Path
+          import re
+
+          link_re = re.compile(r'!?\[[^\]]*\]\(([^)]+)\)')
+          for md_path in sorted(Path('.').glob('*.md')):
+              text = md_path.read_text(encoding='utf-8')
+              for target in link_re.findall(text):
+                  if target.startswith(('http://', 'https://', '#')):
+                      continue
+                  target_clean = target.split('#')[0]
+                  resolved = (md_path.parent / target_clean).resolve()
+                  if 'results/' in target_clean.replace('\\\\', '/'):
+                      continue
+                  assert resolved.exists(), f'Broken link in {md_path}: {target}'
+          print('Markdown link validation passed.')
+          "
+
       - name: Run synthetic end-to-end smoke test
         run: |
           python -c "
@@ -38,7 +58,6 @@ jobs:
           import numpy as np
           import pandas as pd
           from src.train_evaluate import run_experiment
-          from src.generate_report import write_latex_results
 
           with tempfile.TemporaryDirectory() as tmp:
               tmp_path = Path(tmp)
@@ -66,7 +85,5 @@ jobs:
               )
               assert metrics['total_images_loaded'] == 120
               assert (out_dir / 'metrics.json').is_file()
-              tex_out = write_latex_results(results_dir=out_dir, latex_dir=tmp_path / 'latex')
-              assert tex_out.is_file()
               print('Synthetic smoke test passed:', metrics['test_accuracy'])
           "

@@ -59,24 +59,15 @@ See [DATASET.md](DATASET.md) for the full dataset inspection details.
 ```text
 .
 ├── .github/workflows/
-│   ├── ci.yml                     # Python CI, pytest, and synthetic smoke test
-│   ├── manual-evaluation.yml      # Manual Kaggle evaluation workflow
-│   └── report-check.yml           # LaTeX source, Markdown link, and optional PDF check
+│   ├── ci.yml                     # Python CI, pytest, link check, smoke test
+│   └── manual-evaluation.yml      # Manual Kaggle evaluation workflow
 ├── data/
 │   └── raw/                       # Local extracted Kaggle dataset (ignored by Git)
-├── report/
-│   ├── assignment_report.md       # Concise Markdown report matching the PDF
-│   ├── assignment_report.pdf      # Generated 3-page A4 LaTeX PDF (ignored by Git)
-│   └── latex/
-│       ├── main.tex               # LaTeX source (3-page A4 assignment report)
-│       ├── generated_results.tex  # Auto-generated macros/tables from results/
-│       └── figures/               # Figures used by main.tex
 ├── results/                       # Generated metrics, CSVs, and plots (ignored by Git)
 ├── src/
 │   ├── __init__.py
 │   ├── data_loader.py             # CSV/image loading, deduplication, preprocessing
-│   ├── train_evaluate.py          # Stratified splits, grid search, evaluation, plots
-│   └── generate_report.py         # Populates LaTeX tables and compiles PDF via pdflatex
+│   └── train_evaluate.py          # Stratified splits, grid search, evaluation, plots
 ├── tests/
 │   └── test_pipeline.py           # Unit and integration tests
 ├── .gitignore
@@ -100,12 +91,6 @@ Run the full KNN experiment (40 candidates: `raw` and `centered` x `16 x 16` and
 python -m src.train_evaluate --data-dir data/raw --output-dir results
 ```
 
-Populate LaTeX metrics and compile the 3-page A4 PDF report (`report/assignment_report.pdf`, requires `pdflatex`):
-
-```bash
-python -m src.generate_report
-```
-
 Run Python compilation checks and tests:
 
 ```bash
@@ -125,13 +110,12 @@ All 40 candidate configurations are evaluated strictly on the 161-sample validat
 - **Macro F1-score:** `94.86%`
 - **Weighted precision / recall / F1:** `95.29%` / `95.03%` / `95.01%`
 
-See [METHODOLOGY.md](METHODOLOGY.md), [EVALUATION.md](EVALUATION.md), [report/assignment_report.md](report/assignment_report.md), and the LaTeX source at [report/latex/main.tex](report/latex/main.tex).
+See [METHODOLOGY.md](METHODOLOGY.md) and [EVALUATION.md](EVALUATION.md) for detailed configuration and per-class observations.
 
 ## Reproducibility
 
 - Fixed seed `random_state = 42` for stratified 70 / 15 / 15 splitting.
 - Per-image preprocessing fits no global dataset statistics across splits.
-- All report tables and macros in [report/latex/generated_results.tex](report/latex/generated_results.tex) are generated directly from `results/metrics.json` and `results/k_comparison.csv` via `python -m src.generate_report`.
 
 ## Limitations
 
