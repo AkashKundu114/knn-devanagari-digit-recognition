@@ -37,6 +37,8 @@ from src.data_loader import (
     preprocess_images,
 )
 
+VALID_WEIGHTS = {"uniform", "distance"}
+
 plt.rcParams["font.sans-serif"] = ["Nirmala UI", "DejaVu Sans"]
 plt.rcParams["axes.unicode_minus"] = False
 
@@ -65,6 +67,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         nargs="+",
         default=["raw", "centered"],
         help="Preprocessing modes to compare on validation ('raw', 'centered').",
+    )
+    parser.add_argument(
+        "--weights",
+        type=str,
+        nargs="+",
+        default=["distance", "uniform"],
+        help="Neighbor voting weight strategies to compare ('distance', 'uniform').",
     )
     parser.add_argument("--test-size", type=float, default=0.15)
     parser.add_argument("--validation-size", type=float, default=0.15)
@@ -110,13 +119,19 @@ def select_best_configuration(
     idx_train: np.ndarray,
     idx_val: np.ndarray,
     k_values: list[int],
+    weights_list: list[str] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Evaluate all (preprocess_mode, image_size, K) candidates on validation only."""
+    """Evaluate all (preprocess_mode, image_size, weights, K) candidates on validation only."""
     sorted_ks = sorted(set(k_values))
     if not sorted_ks or any(k < 1 for k in sorted_ks):
         raise ValueError("k_values must contain positive integers.")
     if any(k > len(idx_train) for k in sorted_ks):
         raise ValueError("One or more K values exceed the training sample count.")
+
+    weights_options = list(dict.fromkeys(weights_list or ["distance", "uniform"]))
+    for w in weights_options:
+        if w not in VALID_WEIGHTS:
+            raise ValueError(f"Unsupported weights option '{w}'. Expected one of {sorted(VALID_WEIGHTS)}.")
 
     y_train = y[idx_train]
     y_val = y[idx_val]
@@ -125,31 +140,33 @@ def select_best_configuration(
     for (mode, size), X_feat in feature_cache.items():
         X_train = X_feat[idx_train]
         X_val = X_feat[idx_val]
-        for k in sorted_ks:
-            t_fit_start = time.perf_counter()
-            model = KNeighborsClassifier(
-                n_neighbors=k, weights="distance", metric="euclidean", n_jobs=-1
-            )
-            model.fit(X_train, y_train)
-            fit_seconds = time.perf_counter() - t_fit_start
+        for weight_mode in weights_options:
+            for k in sorted_ks:
+                t_fit_start = time.perf_counter()
+                model = KNeighborsClassifier(
+                    n_neighbors=k, weights=weight_mode, metric="euclidean", n_jobs=-1
+                )
+                model.fit(X_train, y_train)
+                fit_seconds = time.perf_counter() - t_fit_start
 
-            t_pred_start = time.perf_counter()
-            val_pred = model.predict(X_val)
-            val_pred_seconds = time.perf_counter() - t_pred_start
+                t_pred_start = time.perf_counter()
+                val_pred = model.predict(X_val)
+                val_pred_seconds = time.perf_counter() - t_pred_start
 
-            rows.append({
-                "preprocess_mode": mode,
-                "image_size": int(size),
-                "feature_count": int(X_feat.shape[1]),
-                "k": int(k),
-                "validation_accuracy": float(accuracy_score(y_val, val_pred)),
-                "fit_time_seconds": round(fit_seconds, 6),
-                "val_predict_time_seconds": round(val_pred_seconds, 6),
-            })
+                rows.append({
+                    "preprocess_mode": mode,
+                    "image_size": int(size),
+                    "feature_count": int(X_feat.shape[1]),
+                    "weights": weight_mode,
+                    "k": int(k),
+                    "validation_accuracy": float(accuracy_score(y_val, val_pred)),
+                    "fit_time_seconds": round(fit_seconds, 6),
+                    "val_predict_time_seconds": round(val_pred_seconds, 6),
+                })
 
     comparison_df = pd.DataFrame(rows).sort_values(
-        ["validation_accuracy", "image_size", "k"],
-        ascending=[False, True, True],
+        ["validation_accuracy", "image_size", "k", "weights"],
+        ascending=[False, True, True, True],
     ).reset_index(drop=True)
 
     best_row = comparison_df.iloc[0]
@@ -157,6 +174,7 @@ def select_best_configuration(
         "preprocess_mode": str(best_row["preprocess_mode"]),
         "image_size": int(best_row["image_size"]),
         "feature_count": int(best_row["feature_count"]),
+        "weights": str(best_row["weights"]),
         "k": int(best_row["k"]),
         "validation_accuracy": float(best_row["validation_accuracy"]),
     }
@@ -165,15 +183,16 @@ def select_best_configuration(
 
 def _plot_confusion_matrix(cm: np.ndarray, best_cfg: dict[str, Any], out_path: Path) -> None:
     """Save confusion matrix heatmap PNG."""
-    fig, ax = plt.subplots(figsize=(8.5, 7.2))
+    fig, ax = plt.subplots(figsize=(7.6, 6.4))
     display_labels = [f"{i} ({DIGIT_GLYPHS[i]})" for i in range(10)]
     display = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=display_labels)
     display.plot(ax=ax, cmap="Blues", colorbar=True, values_format="d")
     ax.set_title(
         f"KNN Confusion Matrix: {best_cfg['preprocess_mode']} "
-        f"{best_cfg['image_size']}x{best_cfg['image_size']}, K={best_cfg['k']}",
-        fontsize=12,
-        pad=12,
+        f"{best_cfg['image_size']}x{best_cfg['image_size']}, "
+        f"K={best_cfg['k']} ({best_cfg['weights']})",
+        fontsize=11,
+        pad=10,
     )
     ax.set_xlabel("Predicted Digit Label", fontsize=10)
     ax.set_ylabel("True Digit Label", fontsize=10)
@@ -185,25 +204,39 @@ def _plot_confusion_matrix(cm: np.ndarray, best_cfg: dict[str, Any], out_path: P
 
 
 def _plot_k_validation_curve(comparison_df: pd.DataFrame, out_path: Path) -> None:
-    """Plot validation accuracy across K for each (preprocess_mode, image_size)."""
-    fig, ax = plt.subplots(figsize=(8.2, 5.2))
-    grouped = comparison_df.sort_values("k").groupby(["preprocess_mode", "image_size"])
-    markers = ["o", "s", "^", "D", "v", "P"]
-    for idx, ((mode, size), group) in enumerate(grouped):
-        ax.plot(
-            group["k"],
-            group["validation_accuracy"] * 100.0,
-            marker=markers[idx % len(markers)],
-            linewidth=2,
-            markersize=6,
-            label=f"{mode} ({size}×{size}, {int(group['feature_count'].iloc[0])} features)",
-        )
-    ax.set_title("Validation Accuracy vs. K Across Preprocessing & Image Resolutions", fontsize=12)
-    ax.set_xlabel("Number of Neighbors (K)", fontsize=10)
-    ax.set_ylabel("Validation Accuracy (%)", fontsize=10)
-    ax.set_xticks(sorted(comparison_df["k"].unique()))
-    ax.grid(True, linestyle="--", alpha=0.45)
-    ax.legend(loc="best", fontsize=9)
+    """Plot validation accuracy across K for each preprocessing mode, resolution, and weighting."""
+    modes = list(dict.fromkeys(comparison_df["preprocess_mode"].tolist()))
+    fig, axes = plt.subplots(1, len(modes), figsize=(5.4 * len(modes), 4.4), sharey=True)
+    axes_list = np.atleast_1d(axes).ravel()
+    styles = {
+        (16, "distance"): ("o", "-", "#1565c0"),
+        (16, "uniform"): ("o", "--", "#64b5f6"),
+        (32, "distance"): ("s", "-", "#c2185b"),
+        (32, "uniform"): ("s", "--", "#f06292"),
+    }
+
+    for ax, mode in zip(axes_list, modes):
+        sub = comparison_df[comparison_df["preprocess_mode"] == mode].sort_values("k")
+        for (size, w), grp in sub.groupby(["image_size", "weights"]):
+            marker, ls, color = styles.get((int(size), str(w)), ("^", "-", "#455a64"))
+            ax.plot(
+                grp["k"],
+                grp["validation_accuracy"] * 100.0,
+                marker=marker,
+                linestyle=ls,
+                color=color,
+                linewidth=1.8,
+                markersize=5.5,
+                label=f"{size}x{size}, {w}",
+            )
+        ax.set_title(f"Preprocessing: {mode}", fontsize=11)
+        ax.set_xlabel("Number of Neighbors (K)", fontsize=9.5)
+        ax.set_xticks(sorted(comparison_df["k"].unique()))
+        ax.grid(True, linestyle="--", alpha=0.4)
+        ax.legend(loc="best", fontsize=8.5)
+
+    axes_list[0].set_ylabel("Validation Accuracy (%)", fontsize=9.5)
+    fig.suptitle("Validation Accuracy vs. K Across Preprocessing, Size, and Weighting", fontsize=12)
     fig.tight_layout()
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
@@ -218,7 +251,7 @@ def _plot_class_distribution(data_meta: dict[str, Any], out_path: Path) -> None:
 
     x = np.arange(len(digits))
     width = 0.38
-    fig, ax = plt.subplots(figsize=(9.0, 5.0))
+    fig, ax = plt.subplots(figsize=(8.6, 4.6))
     bars_raw = ax.bar(x - width / 2, raw_counts, width, label="Raw CSV Rows", color="#90a4ae")
     bars_uniq = ax.bar(x + width / 2, unique_counts, width, label="Unique Images (Deduplicated)", color="#1e88e5")
 
@@ -231,13 +264,13 @@ def _plot_class_distribution(data_meta: dict[str, Any], out_path: Path) -> None:
         ax.annotate(f"{int(h)}", xy=(bar.get_x() + bar.get_width() / 2, h),
                     xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=7.5, fontweight="bold")
 
-    ax.set_title("Devanagari Digit Class Distribution: Raw Rows vs. Unique Images", fontsize=12)
-    ax.set_xlabel("Digit Class", fontsize=10)
-    ax.set_ylabel("Image Count", fontsize=10)
+    ax.set_title("Devanagari Digit Class Distribution: Raw Rows vs. Unique Images", fontsize=11.5)
+    ax.set_xlabel("Digit Class", fontsize=9.5)
+    ax.set_ylabel("Image Count", fontsize=9.5)
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=9)
     ax.grid(axis="y", linestyle="--", alpha=0.4)
-    ax.legend()
+    ax.legend(fontsize=8.5)
     fig.tight_layout()
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
@@ -250,7 +283,7 @@ def _plot_dataset_samples(
     samples_per_class: int = 5,
 ) -> None:
     """Save a 10x5 grid of representative original digit images from the dataset."""
-    fig, axes = plt.subplots(10, samples_per_class, figsize=(samples_per_class * 1.4, 11.5))
+    fig, axes = plt.subplots(10, samples_per_class, figsize=(samples_per_class * 1.35, 10.8))
     for digit in range(10):
         digit_indices = np.where(y == digit)[0]
         step = max(1, len(digit_indices) // samples_per_class)
@@ -262,8 +295,8 @@ def _plot_dataset_samples(
             ax.set_xticks([])
             ax.set_yticks([])
             if col == 0:
-                ax.set_ylabel(f"{digit} ({DIGIT_GLYPHS[digit]})", fontsize=10, rotation=0, labelpad=26, va="center")
-    fig.suptitle("Representative Samples from Unique Devanagari Digit Images (0–9)", fontsize=13, y=0.995)
+                ax.set_ylabel(f"{digit} ({DIGIT_GLYPHS[digit]})", fontsize=9.5, rotation=0, labelpad=24, va="center")
+    fig.suptitle("Representative Samples from Unique Devanagari Digit Images (0-9)", fontsize=12, y=0.995)
     fig.tight_layout()
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
@@ -281,10 +314,8 @@ def _plot_prediction_samples(
     wrong_pos = np.where(y_test != y_pred)[0]
 
     selected_positions: list[tuple[int, bool]] = []
-    # Include up to 5 misclassified samples first so errors are clearly inspected
     for p in wrong_pos[:5]:
         selected_positions.append((int(p), False))
-    # Fill remaining slots up to 15 total with diverse correct predictions
     needed = 15 - len(selected_positions)
     if len(correct_pos) > 0:
         stride = max(1, len(correct_pos) // max(1, needed))
@@ -294,7 +325,7 @@ def _plot_prediction_samples(
     n_items = len(selected_positions)
     cols = 5
     rows = max(1, int(np.ceil(n_items / cols)))
-    fig, axes = plt.subplots(rows, cols, figsize=(10.5, rows * 2.35))
+    fig, axes = plt.subplots(rows, cols, figsize=(10.2, rows * 2.25))
     axes_flat = np.atleast_1d(axes).ravel()
 
     for ax_idx, ax in enumerate(axes_flat):
@@ -318,7 +349,7 @@ def _plot_prediction_samples(
 
     fig.suptitle(
         f"Test Set Predictions: Misclassifications ({len(wrong_pos)} total) & Correct Samples",
-        fontsize=12,
+        fontsize=11.5,
         y=0.99,
     )
     fig.tight_layout()
@@ -332,6 +363,7 @@ def run_experiment(
     image_sizes: list[int] | None = None,
     preprocess_modes: list[str] | None = None,
     k_values: list[int] | None = None,
+    weights_list: list[str] | None = None,
     test_size: float = 0.15,
     validation_size: float = 0.15,
     random_state: int = 42,
@@ -341,12 +373,16 @@ def run_experiment(
     sizes = sorted(set(image_sizes or [16, 32]))
     modes = list(dict.fromkeys(preprocess_modes or ["raw", "centered"]))
     ks = sorted(set(k_values or [1, 3, 5, 7, 9]))
+    weights_options = list(dict.fromkeys(weights_list or ["distance", "uniform"]))
 
     if any(s < 8 for s in sizes):
         raise ValueError("All image sizes must be at least 8 pixels.")
     for mode in modes:
         if mode not in VALID_PREPROCESS_MODES:
             raise ValueError(f"Invalid preprocess mode '{mode}'.")
+    for w in weights_options:
+        if w not in VALID_WEIGHTS:
+            raise ValueError(f"Invalid weights mode '{w}'.")
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -371,7 +407,7 @@ def run_experiment(
 
     t_search_start = time.perf_counter()
     comparison_df, best_cfg = select_best_configuration(
-        feature_cache, y, idx_train, idx_val, ks
+        feature_cache, y, idx_train, idx_val, ks, weights_list=weights_options
     )
     val_search_seconds = time.perf_counter() - t_search_start
     comparison_df.to_csv(output_dir / "k_comparison.csv", index=False)
@@ -386,7 +422,10 @@ def run_experiment(
 
     t_fit_start = time.perf_counter()
     final_model = KNeighborsClassifier(
-        n_neighbors=best_cfg["k"], weights="distance", metric="euclidean", n_jobs=-1
+        n_neighbors=best_cfg["k"],
+        weights=best_cfg["weights"],
+        metric="euclidean",
+        n_jobs=-1,
     )
     final_model.fit(X_final_train, y_final_train)
     final_fit_seconds = time.perf_counter() - t_fit_start
@@ -410,10 +449,6 @@ def run_experiment(
     )
     (output_dir / "classification_report.txt").write_text(report_text, encoding="utf-8")
 
-    pd.DataFrame(cm, index=target_names, columns=target_names).to_csv(
-        output_dir / "confusion_matrix.csv", index=True
-    )
-
     prec_arr, rec_arr, f1_arr, sup_arr = precision_recall_fscore_support(
         y_test, y_pred, labels=labels, zero_division=0
     )
@@ -427,6 +462,23 @@ def run_experiment(
         }
         for lbl in labels
     }
+
+    report_rows = [
+        {
+            "digit": lbl,
+            "glyph": DIGIT_GLYPHS[lbl],
+            "precision": round(float(prec_arr[lbl]), 6),
+            "recall": round(float(rec_arr[lbl]), 6),
+            "f1_score": round(float(f1_arr[lbl]), 6),
+            "support": int(sup_arr[lbl]),
+        }
+        for lbl in labels
+    ]
+    pd.DataFrame(report_rows).to_csv(output_dir / "classification_report.csv", index=False)
+
+    pd.DataFrame(cm, index=target_names, columns=target_names).to_csv(
+        output_dir / "confusion_matrix.csv", index=True
+    )
 
     _plot_confusion_matrix(cm, best_cfg, output_dir / "confusion_matrix.png")
     _plot_k_validation_curve(comparison_df, output_dir / "k_validation_curve.png")
@@ -487,7 +539,7 @@ def run_experiment(
             "test": int(len(y_test)),
         },
         "distance_metric": "euclidean",
-        "weights": "distance",
+        "weights": best_cfg["weights"],
         "selected_preprocess_mode": best_cfg["preprocess_mode"],
         "image_size": best_cfg["image_size"],
         "features_per_image": best_cfg["feature_count"],
@@ -537,6 +589,7 @@ def main(argv: list[str] | None = None) -> None:
         image_sizes=image_sizes,
         preprocess_modes=args.preprocess_modes,
         k_values=args.k_values,
+        weights_list=args.weights,
         test_size=args.test_size,
         validation_size=args.validation_size,
         random_state=args.random_state,
@@ -547,6 +600,7 @@ def main(argv: list[str] | None = None) -> None:
         "split_counts": metrics["split_counts"],
         "selected_preprocess_mode": metrics["selected_preprocess_mode"],
         "image_size": metrics["image_size"],
+        "weights": metrics["weights"],
         "selected_k": metrics["selected_k"],
         "selected_validation_accuracy": metrics["selected_validation_accuracy"],
         "test_accuracy": metrics["test_accuracy"],
