@@ -72,13 +72,10 @@ See [DATASET.md](DATASET.md) for the full dataset inspection details.
 │   └── test_pipeline.py           # Unit and integration tests
 ├── .gitignore
 ├── CHANGELOG.md
-├── CITATION.cff
-├── CONTRIBUTING.md
 ├── DATASET.md
 ├── EVALUATION.md
 ├── LICENSE
 ├── METHODOLOGY.md
-├── PROJECT_STRUCTURE.md
 ├── README.md
 └── requirements.txt
 ```
