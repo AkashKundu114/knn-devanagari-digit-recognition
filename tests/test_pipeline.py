@@ -234,6 +234,7 @@ def test_end_to_end_synthetic_outputs_and_agreement(tmp_path: Path) -> None:
         "k_validation_curve.png",
         "class_distribution.png",
         "dataset_samples.png",
+        "preprocessing_comparison.png",
         "prediction_samples.png",
         "sample_predictions.csv",
     ]

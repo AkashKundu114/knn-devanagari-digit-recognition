@@ -18,7 +18,6 @@ import pandas as pd
 import PIL
 import sklearn
 from sklearn.metrics import (
-    ConfusionMatrixDisplay,
     accuracy_score,
     classification_report,
     confusion_matrix,
@@ -34,13 +33,23 @@ from src.data_loader import (
     DIGIT_GLYPHS,
     VALID_PREPROCESS_MODES,
     load_raw_digit_dataset,
+    preprocess_image_array,
     preprocess_images,
 )
 
 VALID_WEIGHTS = {"uniform", "distance"}
 
-plt.rcParams["font.sans-serif"] = ["Nirmala UI", "DejaVu Sans"]
-plt.rcParams["axes.unicode_minus"] = False
+plt.rcParams.update({
+    "font.sans-serif": ["Nirmala UI", "DejaVu Sans"],
+    "axes.unicode_minus": False,
+    "figure.facecolor": "white",
+    "axes.facecolor": "white",
+    "axes.edgecolor": "#334155",
+    "axes.linewidth": 0.8,
+    "savefig.facecolor": "white",
+    "savefig.bbox": "tight",
+    "savefig.pad_inches": 0.12,
+})
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -181,64 +190,133 @@ def select_best_configuration(
     return comparison_df, selected
 
 
-def _plot_confusion_matrix(cm: np.ndarray, best_cfg: dict[str, Any], out_path: Path) -> None:
-    """Save confusion matrix heatmap PNG."""
-    fig, ax = plt.subplots(figsize=(7.6, 6.4))
+def _plot_confusion_matrix(cm: np.ndarray, best_cfg: dict[str, Any], test_acc: float, macro_f1: float, out_path: Path) -> None:
+    """Save a publication-style confusion matrix heatmap PNG at 300 DPI."""
+    fig, ax = plt.subplots(figsize=(7.2, 6.0))
     display_labels = [f"{i} ({DIGIT_GLYPHS[i]})" for i in range(10)]
-    display = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=display_labels)
-    display.plot(ax=ax, cmap="Blues", colorbar=True, values_format="d")
+    im = ax.imshow(cm, interpolation="nearest", cmap="PuRd", vmin=0, vmax=max(1, int(cm.max())))
+
+    cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cbar.ax.tick_params(labelsize=8.5)
+    cbar.set_label("Sample Count", fontsize=9, labelpad=6)
+
+    thresh = cm.max() * 0.55
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            val = int(cm[i, j])
+            if val == 0:
+                ax.text(j, i, "0", ha="center", va="center", color="#cbd5e1", fontsize=8.5)
+            else:
+                text_color = "white" if val > thresh else "#1e293b"
+                weight = "bold" if i == j else "bold"
+                ax.text(j, i, str(val), ha="center", va="center", color=text_color, fontsize=9.5, fontweight=weight)
+
+    ax.set_xticks(np.arange(10))
+    ax.set_yticks(np.arange(10))
+    ax.set_xticklabels(display_labels, rotation=30, ha="right", fontsize=8.8)
+    ax.set_yticklabels(display_labels, fontsize=8.8)
+    ax.set_xlabel("Predicted Digit Class", fontsize=10, fontweight="bold", labelpad=6)
+    ax.set_ylabel("True Digit Class", fontsize=10, fontweight="bold", labelpad=6)
+
+    # Subtle cell gridlines for visual separation
+    ax.set_xticks(np.arange(-0.5, 10, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, 10, 1), minor=True)
+    ax.grid(which="minor", color="#e2e8f0", linestyle="-", linewidth=0.6)
+    ax.tick_params(which="minor", bottom=False, left=False)
+
     ax.set_title(
-        f"KNN Confusion Matrix: {best_cfg['preprocess_mode']} "
-        f"{best_cfg['image_size']}x{best_cfg['image_size']}, "
-        f"K={best_cfg['k']} ({best_cfg['weights']})",
-        fontsize=11,
+        f"Confusion Matrix ({best_cfg['preprocess_mode']} {best_cfg['image_size']}x{best_cfg['image_size']}, "
+        f"K={best_cfg['k']}, {best_cfg['weights']})\n"
+        f"Test Accuracy: {test_acc * 100:.2f}% | Macro F1: {macro_f1 * 100:.2f}%",
+        fontsize=10.8,
+        fontweight="bold",
         pad=10,
     )
-    ax.set_xlabel("Predicted Digit Label", fontsize=10)
-    ax.set_ylabel("True Digit Label", fontsize=10)
-    plt.xticks(rotation=30, ha="right", fontsize=9)
-    plt.yticks(fontsize=9)
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=180)
+    fig.savefig(out_path, dpi=300)
     plt.close(fig)
 
 
 def _plot_k_validation_curve(comparison_df: pd.DataFrame, out_path: Path) -> None:
-    """Plot validation accuracy across K for each preprocessing mode, resolution, and weighting."""
+    """Plot clean academic validation accuracy curves across K, size, and weighting."""
     modes = list(dict.fromkeys(comparison_df["preprocess_mode"].tolist()))
-    fig, axes = plt.subplots(1, len(modes), figsize=(5.4 * len(modes), 4.4), sharey=True)
+    fig, axes = plt.subplots(1, len(modes), figsize=(5.3 * len(modes), 4.3), sharey=True)
     axes_list = np.atleast_1d(axes).ravel()
     styles = {
-        (16, "distance"): ("o", "-", "#1565c0"),
-        (16, "uniform"): ("o", "--", "#64b5f6"),
-        (32, "distance"): ("s", "-", "#c2185b"),
-        (32, "uniform"): ("s", "--", "#f06292"),
+        (16, "distance"): ("o", "-", "#a8245c", "#a8245c"),
+        (16, "uniform"): ("o", "--", "#d94884", "white"),
+        (32, "distance"): ("s", "-", "#1e293b", "#1e293b"),
+        (32, "uniform"): ("s", "--", "#64748b", "white"),
     }
 
-    for ax, mode in zip(axes_list, modes):
+    best_row = comparison_df.iloc[0]
+    legend_handles = []
+    legend_labels = []
+
+    for ax_idx, (ax, mode) in enumerate(zip(axes_list, modes)):
         sub = comparison_df[comparison_df["preprocess_mode"] == mode].sort_values("k")
         for (size, w), grp in sub.groupby(["image_size", "weights"]):
-            marker, ls, color = styles.get((int(size), str(w)), ("^", "-", "#455a64"))
-            ax.plot(
+            marker, ls, color, mfc = styles.get((int(size), str(w)), ("^", "-", "#475569", "#475569"))
+            line, = ax.plot(
                 grp["k"],
                 grp["validation_accuracy"] * 100.0,
                 marker=marker,
                 linestyle=ls,
                 color=color,
-                linewidth=1.8,
-                markersize=5.5,
+                markerfacecolor=mfc,
+                markeredgecolor=color,
+                markeredgewidth=1.4,
+                linewidth=1.9,
+                markersize=6.0,
                 label=f"{size}x{size}, {w}",
             )
-        ax.set_title(f"Preprocessing: {mode}", fontsize=11)
+            if ax_idx == 0:
+                legend_handles.append(line)
+                legend_labels.append(f"{size}x{size} ({w})")
+
+        if mode == best_row["preprocess_mode"]:
+            bx = int(best_row["k"])
+            by = float(best_row["validation_accuracy"]) * 100.0
+            ax.annotate(
+                f"Selected: K={bx}, {by:.2f}%",
+                xy=(bx, by),
+                xytext=(bx + 1.3, by - 5.5),
+                fontsize=8.5,
+                fontweight="bold",
+                color="#a8245c",
+                arrowprops={"arrowstyle": "->", "color": "#a8245c", "lw": 1.1},
+                bbox={"boxstyle": "round,pad=0.25", "fc": "#fdf2f7", "ec": "#a8245c", "lw": 0.7},
+            )
+
+        ax.set_title(f"Preprocessing: {mode}", fontsize=10.5, fontweight="bold", pad=7)
         ax.set_xlabel("Number of Neighbors (K)", fontsize=9.5)
         ax.set_xticks(sorted(comparison_df["k"].unique()))
-        ax.grid(True, linestyle="--", alpha=0.4)
-        ax.legend(loc="best", fontsize=8.5)
+        ax.set_ylim(53, 102)
+        ax.set_axisbelow(True)
+        ax.grid(True, linestyle="--", alpha=0.45, color="#cbd5e1")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.tick_params(labelsize=8.8)
 
-    axes_list[0].set_ylabel("Validation Accuracy (%)", fontsize=9.5)
-    fig.suptitle("Validation Accuracy vs. K Across Preprocessing, Size, and Weighting", fontsize=12)
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=180)
+    axes_list[0].set_ylabel("Validation Accuracy (%)", fontsize=9.5, fontweight="bold")
+    fig.legend(
+        legend_handles,
+        legend_labels,
+        loc="lower center",
+        ncol=4,
+        frameon=True,
+        facecolor="#f8fafc",
+        edgecolor="#cbd5e1",
+        fontsize=8.5,
+        bbox_to_anchor=(0.5, -0.02),
+    )
+    fig.suptitle(
+        "Validation Accuracy vs. K Across Preprocessing, Resolution, and Weighting",
+        fontsize=11.5,
+        fontweight="bold",
+        y=0.99,
+    )
+    fig.tight_layout(rect=[0, 0.08, 1, 0.94])
+    fig.savefig(out_path, dpi=300)
     plt.close(fig)
 
 
@@ -251,28 +329,44 @@ def _plot_class_distribution(data_meta: dict[str, Any], out_path: Path) -> None:
 
     x = np.arange(len(digits))
     width = 0.38
-    fig, ax = plt.subplots(figsize=(8.6, 4.6))
-    bars_raw = ax.bar(x - width / 2, raw_counts, width, label="Raw CSV Rows", color="#90a4ae")
-    bars_uniq = ax.bar(x + width / 2, unique_counts, width, label="Unique Images (Deduplicated)", color="#1e88e5")
+    fig, ax = plt.subplots(figsize=(8.6, 4.4))
+    bars_raw = ax.bar(
+        x - width / 2, raw_counts, width, label=f"Raw CSV Rows (n={sum(raw_counts):,})",
+        color="#94a3b8", edgecolor="#475569", linewidth=0.6,
+    )
+    bars_uniq = ax.bar(
+        x + width / 2, unique_counts, width, label=f"Unique Images (n={sum(unique_counts):,})",
+        color="#a8245c", edgecolor="#6b1439", linewidth=0.6,
+    )
 
     for bar in bars_raw:
         h = bar.get_height()
-        ax.annotate(f"{int(h)}", xy=(bar.get_x() + bar.get_width() / 2, h),
-                    xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=7.5)
+        ax.annotate(
+            f"{int(h)}", xy=(bar.get_x() + bar.get_width() / 2, h),
+            xytext=(0, 3), textcoords="offset points", ha="center", va="bottom",
+            fontsize=7.8, color="#475569",
+        )
     for bar in bars_uniq:
         h = bar.get_height()
-        ax.annotate(f"{int(h)}", xy=(bar.get_x() + bar.get_width() / 2, h),
-                    xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=7.5, fontweight="bold")
+        ax.annotate(
+            f"{int(h)}", xy=(bar.get_x() + bar.get_width() / 2, h),
+            xytext=(0, 3), textcoords="offset points", ha="center", va="bottom",
+            fontsize=8.0, fontweight="bold", color="#831843",
+        )
 
-    ax.set_title("Devanagari Digit Class Distribution: Raw Rows vs. Unique Images", fontsize=11.5)
-    ax.set_xlabel("Digit Class", fontsize=9.5)
-    ax.set_ylabel("Image Count", fontsize=9.5)
+    ax.set_title("Devanagari Digit Class Distribution: Raw Rows vs. Deduplicated Unique Images", fontsize=11, fontweight="bold", pad=10)
+    ax.set_xlabel("Digit Class", fontsize=9.5, fontweight="bold")
+    ax.set_ylabel("Image Count", fontsize=9.5, fontweight="bold")
     ax.set_xticks(x)
-    ax.set_xticklabels(labels, fontsize=9)
-    ax.grid(axis="y", linestyle="--", alpha=0.4)
-    ax.legend(fontsize=8.5)
+    ax.set_xticklabels(labels, fontsize=8.8)
+    ax.set_ylim(0, max(raw_counts) * 1.14)
+    ax.set_axisbelow(True)
+    ax.grid(axis="y", linestyle="--", alpha=0.45, color="#cbd5e1")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.legend(loc="upper right", frameon=True, facecolor="#f8fafc", edgecolor="#cbd5e1", fontsize=8.5)
     fig.tight_layout()
-    fig.savefig(out_path, dpi=180)
+    fig.savefig(out_path, dpi=300)
     plt.close(fig)
 
 
@@ -282,8 +376,8 @@ def _plot_dataset_samples(
     out_path: Path,
     samples_per_class: int = 5,
 ) -> None:
-    """Save a 10x5 grid of representative original digit images from the dataset."""
-    fig, axes = plt.subplots(10, samples_per_class, figsize=(samples_per_class * 1.35, 10.8))
+    """Save a crisp 10x5 grid of representative original 65x65 digit images."""
+    fig, axes = plt.subplots(10, samples_per_class, figsize=(samples_per_class * 1.15 + 0.7, 10.2))
     for digit in range(10):
         digit_indices = np.where(y == digit)[0]
         step = max(1, len(digit_indices) // samples_per_class)
@@ -294,11 +388,68 @@ def _plot_dataset_samples(
                 ax.imshow(raw_images[int(chosen[col])], cmap="gray", vmin=0, vmax=255)
             ax.set_xticks([])
             ax.set_yticks([])
+            for spine in ax.spines.values():
+                spine.set_edgecolor("#cbd5e1")
+                spine.set_linewidth(0.7)
             if col == 0:
-                ax.set_ylabel(f"{digit} ({DIGIT_GLYPHS[digit]})", fontsize=9.5, rotation=0, labelpad=24, va="center")
-    fig.suptitle("Representative Samples from Unique Devanagari Digit Images (0-9)", fontsize=12, y=0.995)
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=180)
+                ax.set_ylabel(
+                    f"{digit} ({DIGIT_GLYPHS[digit]})",
+                    fontsize=9.5,
+                    fontweight="bold",
+                    rotation=0,
+                    labelpad=22,
+                    va="center",
+                    color="#1e293b",
+                )
+    fig.suptitle(
+        "Representative Unique Devanagari Digit Images (65x65 Grayscale)",
+        fontsize=11.2,
+        fontweight="bold",
+        y=0.995,
+    )
+    fig.subplots_adjust(wspace=0.08, hspace=0.10)
+    fig.savefig(out_path, dpi=300)
+    plt.close(fig)
+
+
+def _plot_preprocessing_comparison(
+    raw_images: list[np.ndarray],
+    y: np.ndarray,
+    out_path: Path,
+) -> None:
+    """Plot side-by-side comparison of Original 65x65, Raw 16x16, and Centered 16x16."""
+    sample_digits = [0, 2, 4, 6, 7, 9]
+    fig, axes = plt.subplots(3, len(sample_digits), figsize=(len(sample_digits) * 1.45 + 1.1, 4.7))
+    row_titles = ["Original (65x65)", "Raw Resize (16x16)", "Centered (16x16)"]
+
+    for col, digit in enumerate(sample_digits):
+        idx = int(np.where(y == digit)[0][0])
+        orig = raw_images[idx]
+        raw_16 = preprocess_image_array(orig, image_size=16, preprocess_mode="raw").reshape(16, 16)
+        cen_16 = preprocess_image_array(orig, image_size=16, preprocess_mode="centered").reshape(16, 16)
+
+        panels = [(orig, 255.0), (raw_16, 1.0), (cen_16, 1.0)]
+        for row, (arr, vmax) in enumerate(panels):
+            ax = axes[row, col]
+            ax.imshow(arr, cmap="gray", vmin=0.0, vmax=vmax, interpolation="nearest")
+            ax.set_xticks([])
+            ax.set_yticks([])
+            for spine in ax.spines.values():
+                spine.set_edgecolor("#94a3b8" if row < 2 else "#a8245c")
+                spine.set_linewidth(0.8 if row < 2 else 1.2)
+            if row == 0:
+                ax.set_title(f"Digit {digit} ({DIGIT_GLYPHS[digit]})", fontsize=9.5, fontweight="bold", pad=5)
+            if col == 0:
+                ax.set_ylabel(row_titles[row], fontsize=8.8, fontweight="bold", rotation=0, labelpad=48, va="center")
+
+    fig.suptitle(
+        "Effect of Bounding-Box Centering on Low-Resolution Feature Alignment",
+        fontsize=11,
+        fontweight="bold",
+        y=0.99,
+    )
+    fig.subplots_adjust(wspace=0.10, hspace=0.14)
+    fig.savefig(out_path, dpi=300)
     plt.close(fig)
 
 
@@ -307,9 +458,10 @@ def _plot_prediction_samples(
     idx_test: np.ndarray,
     y_test: np.ndarray,
     y_pred: np.ndarray,
+    nn_dists: np.ndarray,
     out_path: Path,
 ) -> None:
-    """Plot a grid showing representative correct and incorrect test predictions."""
+    """Plot a crisp grid showing representative misclassified and correct test predictions."""
     correct_pos = np.where(y_test == y_pred)[0]
     wrong_pos = np.where(y_test != y_pred)[0]
 
@@ -336,24 +488,31 @@ def _plot_prediction_samples(
         raw_idx = int(idx_test[pos])
         true_lbl = int(y_test[pos])
         pred_lbl = int(y_pred[pos])
+        dist = float(nn_dists[pos])
         ax.imshow(raw_images[raw_idx], cmap="gray", vmin=0, vmax=255)
-        color = "#1b5e20" if is_ok else "#b71c1c"
-        status = "OK" if is_ok else "ERR"
+        border_color = "#15803d" if is_ok else "#a8245c"
+        for spine in ax.spines.values():
+            spine.set_edgecolor(border_color)
+            spine.set_linewidth(1.5 if not is_ok else 1.0)
+        tag = "Correct" if is_ok else "Error"
         ax.set_title(
-            f"[{status}] True: {true_lbl} ({DIGIT_GLYPHS[true_lbl]}) | Pred: {pred_lbl} ({DIGIT_GLYPHS[pred_lbl]})",
-            fontsize=8.5,
-            color=color,
+            f"{tag} | True: {true_lbl} ({DIGIT_GLYPHS[true_lbl]}), Pred: {pred_lbl} ({DIGIT_GLYPHS[pred_lbl]})\n1-NN d={dist:.2f}",
+            fontsize=8.0,
+            color=border_color,
+            fontweight="bold" if not is_ok else "normal",
+            pad=4,
         )
         ax.set_xticks([])
         ax.set_yticks([])
 
     fig.suptitle(
-        f"Test Set Predictions: Misclassifications ({len(wrong_pos)} total) & Correct Samples",
-        fontsize=11.5,
+        f"Held-Out Test Predictions: Misclassified ({len(wrong_pos)} total) & Correct Samples",
+        fontsize=11.2,
+        fontweight="bold",
         y=0.99,
     )
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=180)
+    fig.subplots_adjust(wspace=0.12, hspace=0.34)
+    fig.savefig(out_path, dpi=300)
     plt.close(fig)
 
 
@@ -480,11 +639,15 @@ def run_experiment(
         output_dir / "confusion_matrix.csv", index=True
     )
 
-    _plot_confusion_matrix(cm, best_cfg, output_dir / "confusion_matrix.png")
+    test_acc = float(accuracy_score(y_test, y_pred))
+    test_macro_f1 = float(f1_score(y_test, y_pred, average="macro", zero_division=0))
+
+    _plot_confusion_matrix(cm, best_cfg, test_acc, test_macro_f1, output_dir / "confusion_matrix.png")
     _plot_k_validation_curve(comparison_df, output_dir / "k_validation_curve.png")
     _plot_class_distribution(data_meta, output_dir / "class_distribution.png")
     _plot_dataset_samples(raw_images, y, output_dir / "dataset_samples.png")
-    _plot_prediction_samples(raw_images, idx_test, y_test, y_pred, output_dir / "prediction_samples.png")
+    _plot_preprocessing_comparison(raw_images, y, output_dir / "preprocessing_comparison.png")
+    _plot_prediction_samples(raw_images, idx_test, y_test, y_pred, nn_dists[:, 0], output_dir / "prediction_samples.png")
 
     sample_ids = data_meta["sample_paths"]
     prediction_df = pd.DataFrame({

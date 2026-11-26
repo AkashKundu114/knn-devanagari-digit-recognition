@@ -20,6 +20,7 @@ python -m src.train_evaluate --data-dir data/raw --output-dir results
 | `results/k_validation_curve.png` | Validation accuracy vs. K across preprocessing, size, and weighting |
 | `results/class_distribution.png` | Raw rows vs. deduplicated unique image counts per digit class |
 | `results/dataset_samples.png` | 10 x 5 grid of representative unique digit images |
+| `results/preprocessing_comparison.png` | Original 65 x 65 vs. raw 16 x 16 vs. centered 16 x 16 comparison |
 | `results/prediction_samples.png` | Grid of misclassified and correct test predictions |
 | `results/sample_predictions.csv` | All 161 test predictions with nearest-neighbor distances |
 
